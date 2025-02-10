@@ -4,6 +4,7 @@ lucide.createIcons();
 // State management
 let habits = JSON.parse(localStorage.getItem('habits') || '[]');
 let isDarkMode = document.documentElement.classList.contains('dark');
+let isEditMode = false;
 
 // DOM Elements
 const dateHeader = document.getElementById('dateHeader');
@@ -42,6 +43,13 @@ const getDaysLeftInYear = () => {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
+const getDaysCompletedInYear = () => {
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const diffTime = Math.abs(now.getTime() - startOfYear.getTime());
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
 const getYearDaysLeftPercentage = () => {
   const daysLeft = getDaysLeftInYear();
   return (daysLeft / 365) * 100;
@@ -49,6 +57,39 @@ const getYearDaysLeftPercentage = () => {
 
 const getDaysInMonth = (year, month) => {
   return new Date(year, month + 1, 0).getDate();
+};
+
+const calculateStreak = (habit) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const dates = Object.keys(habit.history).sort();
+  if (dates.length === 0) return 0;
+
+  let streak = 0;
+  let currentDate = new Date(today);
+  
+  // Count backwards from today until we find a break in the streak
+  while (true) {
+    const dateStr = currentDate.toISOString().split('T')[0];
+    if (!habit.history[dateStr]) break;
+    streak++;
+    currentDate.setDate(currentDate.getDate() - 1);
+  }
+  
+  return streak;
+};
+
+const getStartDate = (habit) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const streak = calculateStreak(habit);
+  if (streak === 0) return null;
+  
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() - (streak - 1));
+  return startDate;
 };
 
 // UI update functions
@@ -59,8 +100,9 @@ const updateDateInfo = () => {
   
   const daysLeftPercentage = getYearDaysLeftPercentage();
   const daysLeft = getDaysLeftInYear();
-  yearPercentage.textContent = `${daysLeftPercentage.toFixed(1)}%`;
-  yearProgressBar.style.width = `${daysLeftPercentage}%`;
+  const daysCompleted = getDaysCompletedInYear();
+  yearPercentage.textContent = `${daysLeftPercentage.toFixed(6)}%`;
+  yearProgressBar.style.width = `${(daysCompleted / 365) * 100}%`;
   daysLeftYear.textContent = daysLeft;
 };
 
@@ -69,12 +111,26 @@ const showMonthlyView = (habit) => {
   const year = now.getFullYear();
   const month = now.getMonth();
   const daysInMonth = getDaysInMonth(year, month);
+  const startDate = getStartDate(habit);
   
   let calendarHTML = `
-    <h3 class="text-xl font-bold mb-4">${habit.name}</h3>
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-xl font-bold">${habit.name}</h3>
+      <button id="editModeBtn" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-colors">
+        <i data-lucide="${isEditMode ? 'check' : 'edit-2'}" class="w-5 h-5"></i>
+      </button>
+    </div>
     <div class="mb-4">
-      <span class="text-3xl font-bold">${habit.streak}</span>
+      <span class="text-3xl font-bold">${calculateStreak(habit)}</span>
       <span class="text-sm opacity-70"> days streak</span>
+      ${startDate ? `
+        <div class="flex items-center gap-2 mt-2">
+          <span class="text-sm opacity-70">Started on: ${startDate.toLocaleDateString()}</span>
+          <button id="editStartDate" class="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-white/10">
+            <i data-lucide="edit-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      ` : '<div class="text-sm opacity-70 mt-2">No active streak</div>'}
     </div>
     <div class="grid grid-cols-7 gap-1 mb-4">
       ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -95,14 +151,22 @@ const showMonthlyView = (habit) => {
     const date = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const isCompleted = habit.history[date];
     const hasNote = habit.notes[date];
+    const isPast = new Date(date) < new Date();
+    const isEditable = isEditMode && isPast;
     const classes = [
       'calendar-day',
+      isEditable ? 'cursor-pointer' : '',
       isCompleted ? 'completed' : '',
-      hasNote ? 'has-note' : ''
+      hasNote ? 'has-note' : '',
+      isPast ? 'past-day' : ''
     ].filter(Boolean).join(' ');
     
     calendarHTML += `
-      <div class="${classes}" title="${hasNote || ''}">${day}</div>
+      <div class="${classes}" 
+           data-date="${date}" 
+           data-habit-id="${habit.id}"
+           title="${hasNote || ''}"
+           ${isEditable ? `onclick="togglePastDay('${habit.id}', '${date}')"` : ''}>${day}</div>
     `;
   }
 
@@ -126,6 +190,26 @@ const showMonthlyView = (habit) => {
   }
 
   monthlyContent.innerHTML = calendarHTML;
+  lucide.createIcons();
+
+  // Add event listeners
+  const editModeBtn = document.getElementById('editModeBtn');
+  editModeBtn.addEventListener('click', () => {
+    isEditMode = !isEditMode;
+    showMonthlyView(habit);
+  });
+
+  const editStartDateBtn = document.getElementById('editStartDate');
+  if (editStartDateBtn) {
+    editStartDateBtn.addEventListener('click', () => {
+      const newDate = prompt('Enter new start date (YYYY-MM-DD):', startDate.toISOString().split('T')[0]);
+      if (newDate && !isNaN(new Date(newDate).getTime())) {
+        updateStartDate(habit.id, newDate);
+        showMonthlyView(habit);
+      }
+    });
+  }
+
   monthlyModal.classList.remove('hidden');
   monthlyModal.classList.add('flex');
 };
@@ -139,7 +223,9 @@ const createHabitCard = (habit) => {
     { days: 50, message: '🔥 Halfway to 100!' },
     { days: 100, message: '💪 Century milestone!' }
   ];
-  const currentAchievement = achievements.findLast(a => habit.streak >= a.days);
+  const streak = calculateStreak(habit);
+  const currentAchievement = achievements.findLast(a => streak >= a.days);
+  const startDate = getStartDate(habit);
 
   const card = document.createElement('div');
   card.className = 'habit-card rounded-xl p-6';
@@ -158,13 +244,29 @@ const createHabitCard = (habit) => {
             ? '<i data-lucide="check" class="w-5 h-5 text-green-500"></i>' 
             : '<i data-lucide="chevron-up" class="w-5 h-5"></i>'}
         </button>
+        <div class="relative">
+          <button class="menu-btn p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-colors">
+            <i data-lucide="more-vertical" class="w-5 h-5"></i>
+          </button>
+          <div class="menu-content hidden absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 z-10">
+            <div class="py-1">
+              <button class="delete-btn text-red-500 group flex w-full items-center px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700">
+                <i data-lucide="trash-2" class="w-4 h-4 mr-3"></i>
+                Delete Habit
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="mt-4">
       <div class="flex items-center gap-2">
-        <span class="text-3xl font-bold ${isCompleted ? 'text-green-500' : ''}">${habit.streak}</span>
+        <span class="text-3xl font-bold ${isCompleted ? 'text-green-500' : ''}">${streak}</span>
         <span class="text-sm opacity-70">days streak</span>
       </div>
+      ${startDate ? `
+        <div class="text-sm opacity-70 mt-1">Started on: ${startDate.toLocaleDateString()}</div>
+      ` : ''}
       ${currentAchievement ? `
         <div class="mt-2 text-sm text-green-400 achievement">
           ${currentAchievement.message}
@@ -193,6 +295,25 @@ const createHabitCard = (habit) => {
   const toggleBtn = card.querySelector('.toggle-btn');
   toggleBtn.addEventListener('click', () => toggleHabit(habit.id));
 
+  const menuBtn = card.querySelector('.menu-btn');
+  const menuContent = card.querySelector('.menu-content');
+  
+  menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menuContent.classList.toggle('hidden');
+  });
+
+  document.addEventListener('click', () => {
+    menuContent.classList.add('hidden');
+  });
+
+  const deleteBtn = card.querySelector('.delete-btn');
+  deleteBtn.addEventListener('click', () => {
+    if (confirm('Are you sure you want to delete this habit? This action cannot be undone.')) {
+      deleteHabit(habit.id);
+    }
+  });
+
   const noteBtn = card.querySelector('.note-btn');
   const noteContainer = card.querySelector('.note-container');
   const noteInput = card.querySelector('input');
@@ -200,7 +321,10 @@ const createHabitCard = (habit) => {
   const cancelNoteBtn = card.querySelector('.cancel-note');
 
   const monthlyViewBtn = card.querySelector('.monthly-view-btn');
-  monthlyViewBtn.addEventListener('click', () => showMonthlyView(habit));
+  monthlyViewBtn.addEventListener('click', () => {
+    isEditMode = false;
+    showMonthlyView(habit);
+  });
 
   noteBtn.addEventListener('click', () => {
     noteContainer.classList.toggle('hidden');
@@ -213,7 +337,7 @@ const createHabitCard = (habit) => {
   saveNoteBtn.addEventListener('click', () => {
     addNote(habit.id, noteInput.value);
     noteContainer.classList.add('hidden');
-    renderHabits(); // Re-render to show the new note
+    renderHabits();
   });
 
   cancelNoteBtn.addEventListener('click', () => {
@@ -251,6 +375,12 @@ const addHabit = () => {
   renderHabits();
 };
 
+const deleteHabit = (id) => {
+  habits = habits.filter(habit => habit.id !== id);
+  saveHabits();
+  renderHabits();
+};
+
 const toggleHabit = (id) => {
   const today = new Date().toISOString().split('T')[0];
   
@@ -262,21 +392,52 @@ const toggleHabit = (id) => {
 
     if (wasCompleted) {
       delete newHistory[today];
-      return {
-        ...habit,
-        streak: Math.max(0, habit.streak - 1),
-        history: newHistory
-      };
     } else {
       newHistory[today] = true;
-      return {
-        ...habit,
-        streak: habit.streak + 1,
-        history: newHistory
-      };
     }
+
+    return {
+      ...habit,
+      history: newHistory
+    };
   });
 
+  saveHabits();
+  renderHabits();
+};
+
+const togglePastDay = (habitId, date) => {
+  if (!isEditMode) return;
+  
+  const today = new Date().toISOString().split('T')[0];
+  if (date > today) return;
+
+  habits = habits.map(habit => {
+    if (habit.id !== habitId) return habit;
+
+    const newHistory = { ...habit.history };
+    if (newHistory[date]) {
+      delete newHistory[date];
+    } else {
+      newHistory[date] = true;
+    }
+
+    return {
+      ...habit,
+      history: newHistory
+    };
+  });
+
+  saveHabits();
+  showMonthlyView(habits.find(h => h.id === habitId));
+  renderHabits();
+};
+
+const updateStartDate = (habitId, newStartDate) => {
+  habits = habits.map(habit => {
+    if (habit.id !== habitId) return habit;
+    return { ...habit, startDate: newStartDate };
+  });
   saveHabits();
   renderHabits();
 };
@@ -303,17 +464,13 @@ const toggleTheme = () => {
   document.body.classList.toggle('dark:to-slate-800');
   document.body.classList.toggle('dark:text-white');
   
-  // Update theme toggle button
   themeToggle.innerHTML = isDarkMode 
     ? '<i data-lucide="sun" class="w-6 h-6"></i>'
     : '<i data-lucide="moon" class="w-6 h-6"></i>';
   
-  // Store theme preference
   localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   
   lucide.createIcons();
-  
-  // Re-render habits to update their styling
   renderHabits();
 };
 
@@ -347,11 +504,13 @@ themeToggle.addEventListener('click', toggleTheme);
 closeModal.addEventListener('click', () => {
   monthlyModal.classList.add('hidden');
   monthlyModal.classList.remove('flex');
+  isEditMode = false;
 });
 monthlyModal.addEventListener('click', (e) => {
   if (e.target === monthlyModal) {
     monthlyModal.classList.add('hidden');
     monthlyModal.classList.remove('flex');
+    isEditMode = false;
   }
 });
 
@@ -359,4 +518,14 @@ monthlyModal.addEventListener('click', (e) => {
 initializeTheme();
 updateDateInfo();
 renderHabits();
-setInterval(updateDateInfo, 60000); // Update date info every minute
+
+// Update time-based information
+const updateTimeInfo = () => {
+  updateDateInfo();
+  renderHabits();
+};
+
+setInterval(updateTimeInfo, 1000); // Update every second for live percentage
+
+// Make togglePastDay available globally
+window.togglePastDay = togglePastDay;
