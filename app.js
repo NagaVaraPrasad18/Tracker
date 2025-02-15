@@ -373,6 +373,29 @@ const renderHabits = () => {
 // Event handlers
 const addHabit = () => {
   const name = newHabitInput.value.trim();
+  
+  // Check if a habit with the same name already exists
+    if (habits.some(habit => habit.name.toLowerCase() === name.toLowerCase())) {
+      console.log("Habit already exists!");
+	  
+	  // Apply shake animation
+      document.getElementById("newHabitInput").classList.add("shake");
+	  // Show error message
+	  document.getElementById("errorMsg").classList = "text-red-500 text-sm absolute left-1/2 transform -translate-x-1/2 mt-2";
+	  //document.getElementById("errorMsg").classList.add("opacity-100");
+
+      // Remove class after animation ends
+      setTimeout(() => {
+		document.getElementById("newHabitInput").classList.remove("shake");
+	  }, 300);
+	  // Remove error message
+	  //document.getElementById("errorMsg").classList.add("hidden");
+	  // Clear input field
+	  newHabitInput.value = "";
+	  
+      return;  // Stop execution
+    }
+  
   if (!name) return;
 
   const habit = {
@@ -387,6 +410,7 @@ const addHabit = () => {
   habits.push(habit);
   saveHabits();
   newHabitInput.value = '';
+  document.getElementById("errorMsg").classList.add("hidden");
   renderHabits();
 };
 
