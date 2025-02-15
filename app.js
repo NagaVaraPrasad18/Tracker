@@ -63,13 +63,9 @@ const calculateStreak = (habit) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
-  const dates = Object.keys(habit.history).sort();
-  if (dates.length === 0) return 0;
-
-  let streak = 0;
   let currentDate = new Date(today);
+  let streak = 0;
   
-  // Count backwards from today until we find a break in the streak
   while (true) {
     const dateStr = currentDate.toISOString().split('T')[0];
     if (!habit.history[dateStr]) break;
@@ -84,12 +80,17 @@ const getStartDate = (habit) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
-  const streak = calculateStreak(habit);
-  if (streak === 0) return null;
+  let currentDate = new Date(today);
+  let startDate = null;
   
-  const startDate = new Date(today);
-  startDate.setDate(startDate.getDate() - (streak - 1));
-  return startDate;
+  while (true) {
+    const dateStr = currentDate.toISOString().split('T')[0];
+    if (!habit.history[dateStr]) break;
+    startDate = new Date(currentDate);
+    currentDate.setDate(currentDate.getDate() - 1);
+  }
+  
+  return startDate ? new Date(startDate.setDate(startDate.getDate() - (calculateStreak(habit) - 1))) : null;
 };
 
 // UI update functions
@@ -192,7 +193,6 @@ const showMonthlyView = (habit) => {
   monthlyContent.innerHTML = calendarHTML;
   lucide.createIcons();
 
-  // Add event listeners
   const editModeBtn = document.getElementById('editModeBtn');
   editModeBtn.addEventListener('click', () => {
     isEditMode = !isEditMode;
@@ -217,51 +217,39 @@ const showMonthlyView = (habit) => {
 const createHabitCard = (habit) => {
   const today = new Date().toISOString().split('T')[0];
   const isCompleted = habit.history[today];
+  const streak = calculateStreak(habit);
+  const startDate = getStartDate(habit);
   const achievements = [
     { days: 7, message: '🎉 One week streak!' },
     { days: 30, message: '🌟 One month strong!' },
     { days: 50, message: '🔥 Halfway to 100!' },
     { days: 100, message: '💪 Century milestone!' }
   ];
-  const streak = calculateStreak(habit);
   const currentAchievement = achievements.findLast(a => streak >= a.days);
-  const startDate = getStartDate(habit);
 
   const card = document.createElement('div');
-  card.className = 'habit-card rounded-xl p-6';
+  card.className = 'habit-card rounded-xl p-6 relative';
   card.innerHTML = `
-    <div class="flex justify-between items-center mb-4">
+    <div class="flex justify-between items-center">
       <h3 class="text-xl font-bold">${habit.name}</h3>
       <div class="flex gap-2">
         <button class="monthly-view-btn p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-colors">
           <i data-lucide="calendar" class="w-5 h-5"></i>
         </button>
         <button class="note-btn p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-colors">
-          <i data-lucide="edit" class="w-5 h-5"></i>
+          <i data-lucide="message-square" class="w-5 h-5"></i>
         </button>
         <button class="toggle-btn p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-colors ${isCompleted ? 'bg-green-500/20' : ''}">
           ${isCompleted 
             ? '<i data-lucide="check" class="w-5 h-5 text-green-500"></i>' 
             : '<i data-lucide="chevron-up" class="w-5 h-5"></i>'}
         </button>
-        <div class="relative">
-          <button class="menu-btn p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-colors">
-            <i data-lucide="more-vertical" class="w-5 h-5"></i>
-          </button>
-          <div class="menu-content hidden absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 z-10">
-            <div class="py-1">
-              <button class="delete-btn text-red-500 group flex w-full items-center px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700">
-                <i data-lucide="trash-2" class="w-4 h-4 mr-3"></i>
-                Delete Habit
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
+
     <div class="mt-4">
       <div class="flex items-center gap-2">
-        <span class="text-3xl font-bold ${isCompleted ? 'text-green-500' : ''}">${streak}</span>
+        <span class="text-2xl font-bold ${isCompleted ? 'text-green-500' : ''}">${streak}</span>
         <span class="text-sm opacity-70">days streak</span>
       </div>
       ${startDate ? `
@@ -273,6 +261,7 @@ const createHabitCard = (habit) => {
         </div>
       ` : ''}
     </div>
+
     <div class="note-container hidden mt-4">
       <div class="flex gap-2">
         <input type="text" class="flex-1 px-3 py-2 rounded bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white" placeholder="Add a note for today...">
@@ -289,6 +278,21 @@ const createHabitCard = (habit) => {
         <span class="font-medium">Today's note:</span> ${habit.notes[today]}
       </div>
     ` : ''}
+
+    <div class="absolute bottom-6 right-6">
+      <div class="relative">
+        <button class="menu-btn p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-colors">
+          <i data-lucide="more-vertical" class="w-5 h-5"></i>
+        </button>
+        <div class="menu-content hidden absolute bottom-full right-0 mb-2 w-48 rounded-md shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 z-10">
+          <div class="py-1">
+            <button class="delete-btn text-red-500 group flex w-full items-center px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700">
+              Delete Habit
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   `;
 
   // Event listeners
@@ -398,7 +402,8 @@ const toggleHabit = (id) => {
 
     return {
       ...habit,
-      history: newHistory
+      history: newHistory,
+      streak: calculateStreak({ ...habit, history: newHistory })
     };
   });
 
@@ -424,7 +429,8 @@ const togglePastDay = (habitId, date) => {
 
     return {
       ...habit,
-      history: newHistory
+      history: newHistory,
+      streak: calculateStreak({ ...habit, history: newHistory })
     };
   });
 
@@ -522,7 +528,7 @@ renderHabits();
 // Update time-based information
 const updateTimeInfo = () => {
   updateDateInfo();
-  renderHabits();
+  //renderHabits();
 };
 
 setInterval(updateTimeInfo, 1000); // Update every second for live percentage
