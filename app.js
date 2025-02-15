@@ -320,6 +320,7 @@ const createHabitCard = (habit) => {
 
   document.addEventListener('click', () => {
     menuContent.classList.add('hidden');
+	document.getElementById("errorMsg").classList.add("hidden");
   });
 
   const deleteBtn = card.querySelector('.delete-btn');
