@@ -99,11 +99,22 @@ const updateDateInfo = () => {
   dateHeader.textContent = formatDate(now);
   monthInfo.textContent = `${getDaysLeftInMonth()} days left in ${now.toLocaleString('default', { month: 'long' })}`;
   
-  const daysLeftPercentage = getYearDaysLeftPercentage();
+  //const daysLeftPercentage = getYearDaysLeftPercentage();
   const daysLeft = getDaysLeftInYear();
-  const daysCompleted = getDaysCompletedInYear();
-  yearPercentage.textContent = `${daysLeftPercentage.toFixed(6)}%`;
-  yearProgressBar.style.width = `${(daysCompleted / 365) * 100}%`;
+  //const daysCompleted = getDaysCompletedInYear();
+  
+  //console.log("Percentage: ", daysLeftPercentage.toFixed(6));
+  //yearPercentage.textContent = `${daysLeftPercentage.toFixed(6)}%`;
+  //yearProgressBar.style.width = `${(daysCompleted / 365) * 100}%`;
+  
+  const startOfYear = new Date(now.getFullYear(), 0, 0);
+  const diff = now - startOfYear; // difference in milliseconds
+  const yearDuration = 365 * 24 * 60 * 60 * 1000; // total milliseconds in a year (approx 365 days)
+  const barProgressPercentage = (diff / yearDuration) * 100;
+  yearProgressBar.style.width = `${barProgressPercentage}%`;
+  const yearLeftPercentage = 100 - barProgressPercentage;
+  yearPercentage.textContent = `${yearLeftPercentage.toFixed(6)}%`;
+  
   daysLeftYear.textContent = daysLeft;
 };
 
