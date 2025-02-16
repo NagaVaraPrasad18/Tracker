@@ -318,10 +318,7 @@ const createHabitCard = (habit) => {
     menuContent.classList.toggle('hidden');
   });
 
-  document.addEventListener('click', () => {
-    menuContent.classList.add('hidden');
-	document.getElementById("errorMsg").classList.add("hidden");
-  });
+  
 
   const deleteBtn = card.querySelector('.delete-btn');
   deleteBtn.addEventListener('click', () => {
@@ -343,6 +340,7 @@ const createHabitCard = (habit) => {
   });
 
   noteBtn.addEventListener('click', () => {
+	//console.log("Note");
     noteContainer.classList.toggle('hidden');
     noteInput.value = habit.notes[today] || '';
     if (!noteContainer.classList.contains('hidden')) {
@@ -363,6 +361,51 @@ const createHabitCard = (habit) => {
   return card;
 };
 
+document.addEventListener('click', (event) => {
+    //document.getElementById("habitsContainer").querySelector('.menu-content').classList.add('hidden');
+	document.querySelectorAll("#habitsContainer .menu-content").forEach(menu => {
+	    if (!menu.classList.contains("hidden")) {
+	        menu.classList.add("hidden");
+	        //console.log("Hidden");
+	    }
+	});
+	/*console.log("Event: ", event.type);
+	console.log("Target: ", event.target);
+	console.log("Target Class: ", event.target.classList);
+	console.log("Target Class: ", 	(event.target.tagName.toLowerCase() === "path" && 
+	        event.target.getAttribute("d") === "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"));
+	console.log("Target Class 1: ", event.target.classList[1]);
+	console.log("Target Id: ", event.target.classList.contains('note-btn'));*/
+	if (event.target.id === "newHabitInput" || event.target.id === "addHabitBtn") {
+        return; // Do nothing if the user clicks on input or button
+    }
+	document.getElementById("errorMsg").classList.add("hidden");
+	//console.log("noteBtn: ", event.target.id === "noteBtn");
+	if (!(event.target.classList[0]==="note-btn" || 
+		event.target.classList[1]==="lucide-message-square" || 
+		(event.target.tagName.toLowerCase() === "path" && 
+	        event.target.getAttribute("d") === "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"))) {
+		//console.log("Contains Hidden: ",document.getElementById("habitsContainer").querySelector('.note-container').classList.contains('hidden'));
+		
+		/*for(!document.getElementById("habitsContainer").querySelector('.note-container').classList.contains('hidden')){
+			console.log("In");
+		}
+		
+		if (!document.getElementById("habitsContainer").querySelector('.note-container').classList.contains('hidden')){
+			document.getElementById("habitsContainer").querySelector('.note-container').classList.add('hidden');
+			console.log("Hidden");
+		}*/
+		
+		document.querySelectorAll("#habitsContainer .note-container").forEach(note => {
+		    if (!note.classList.contains("hidden")) {
+		        note.classList.add("hidden");
+		        //console.log("Hidden");
+		    }
+		});
+		
+	}
+  });
+
 const renderHabits = () => {
   habitsContainer.innerHTML = '';
   habits.forEach(habit => {
@@ -377,7 +420,7 @@ const addHabit = () => {
   
   // Check if a habit with the same name already exists
     if (habits.some(habit => habit.name.toLowerCase() === name.toLowerCase())) {
-      console.log("Habit already exists!");
+      //console.log("Habit already exists!");
 	  
 	  // Apply shake animation
       document.getElementById("newHabitInput").classList.add("shake");
